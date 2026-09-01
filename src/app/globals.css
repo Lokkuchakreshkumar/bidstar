@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fbf9f6;
+  --foreground: #191614;
+  --card-bg: #ffffff;
+  --card-border: #e8e2d8;
+  --card-hover: #f5f0e8;
+  --accent-coral: #ff5722;
+  --accent-coral-hover: #f4511e;
+  --pill-bg: #f0ebe2;
+  --pill-border: #ded7cb;
+  --muted-text: #736b63;
+}
+
+.dark {
+  --background: #0d0b0a;
+  --foreground: #f4efea;
+  --card-bg: #14110f;
+  --card-border: #26211d;
+  --card-hover: #1c1816;
+  --accent-coral: #ff5722;
+  --accent-coral-hover: #ff7043;
+  --pill-bg: #1c1816;
+  --pill-border: #2d2723;
+  --muted-text: #968c83;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Custom Outbid scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 140, 131, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 140, 131, 0.4);
+}
+
+/* Micro-animations */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 87, 34, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 87, 34, 0.35);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s infinite ease-in-out;
+}
+
+@keyframes rankPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.animate-rank-pop {
+  animation: rankPulse 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.tabular-numbers {
+  font-variant-numeric: tabular-nums;
+}
