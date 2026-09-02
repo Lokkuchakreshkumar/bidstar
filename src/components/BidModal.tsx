@@ -133,12 +133,15 @@ export function BidModal() {
       });
 
       const data = await response.json();
-      if (!response.ok || !data.checkoutUrl) {
-        throw new Error(data.error || 'Failed to initialize Dodo checkout session');
+      const checkoutUrl = data.data?.checkoutUrl || data.checkoutUrl;
+
+      if (!response.ok || !checkoutUrl) {
+        const errorMsg = data.error?.message || data.fallback || data.error || 'Failed to initialize Dodo checkout session';
+        throw new Error(errorMsg);
       }
 
       // Redirect directly to Dodo Payments hosted checkout
-      window.location.href = data.checkoutUrl;
+      window.location.href = checkoutUrl;
     } catch (err: unknown) {
       console.error('Checkout error:', err);
       const message = err instanceof Error ? err.message : 'Failed to initialize checkout. Please try again.';
