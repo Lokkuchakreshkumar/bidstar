@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCinebid } from '@/context/CinebidContext';
 import { formatRupee } from '@/lib/formatters';
-import { Search, X, Zap, ChevronRight, Film } from 'lucide-react';
+import { Search, X, Zap } from 'lucide-react';
 
 export function SearchModal() {
   const { isSearchOpen, closeSearch, heroes, openBidModal } = useCinebid();
@@ -20,15 +20,12 @@ export function SearchModal() {
     }
   }, [isSearchOpen]);
 
-  // Global keydown for CMD+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         if (isSearchOpen) {
           closeSearch();
-        } else {
-          useCinebid;
         }
       }
       if (e.key === 'Escape' && isSearchOpen) {
@@ -44,19 +41,22 @@ export function SearchModal() {
   const results = heroes.filter((h) =>
     h.name.toLowerCase().includes(query.toLowerCase()) ||
     h.titleTag.toLowerCase().includes(query.toLowerCase()) ||
-    h.latestBlockbuster.toLowerCase().includes(query.toLowerCase()) ||
+    h.region.toLowerCase().includes(query.toLowerCase()) ||
     h.industry.toLowerCase().includes(query.toLowerCase())
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
+    <div 
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={closeSearch}
+    >
       <div 
-        className="relative w-full max-w-xl rounded-3xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-xl rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Bar Input */}
-        <div className="flex items-center px-4 py-3.5 border-b border-[var(--card-border)]">
-          <Search className="w-5 h-5 text-[var(--muted-text)] mr-3 shrink-0" />
+        <div className="flex items-center px-4 py-3 border-b border-[var(--border-subtle)]">
+          <Search className="w-4 h-4 text-[var(--muted-text)] mr-3 shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -70,24 +70,24 @@ export function SearchModal() {
               onClick={() => setQuery('')}
               className="p-1 rounded-full text-[var(--muted-text)] hover:text-[var(--foreground)] mr-1 cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
           <button
             onClick={closeSearch}
-            className="px-2 py-1 rounded-md text-[10px] font-bold bg-[var(--pill-bg)] border border-[var(--pill-border)] text-[var(--muted-text)] cursor-pointer"
+            className="px-2 py-0.5 rounded text-[10px] font-mono bg-[var(--pill-bg)] border border-[var(--pill-border)] text-[var(--muted-text)] cursor-pointer"
           >
             ESC
           </button>
         </div>
 
         {/* Results List */}
-        <div className="max-h-80 overflow-y-auto p-2 divide-y divide-[var(--card-border)]/40">
+        <div className="max-h-80 overflow-y-auto p-2 divide-y divide-[var(--border-subtle)]">
           {results.length > 0 ? (
             results.map((hero) => (
               <div
                 key={hero.id}
-                className="flex items-center justify-between p-3 rounded-2xl hover:bg-[var(--card-hover)] transition-colors cursor-pointer group"
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-[var(--card-hover)] transition-colors cursor-pointer group"
                 onClick={() => {
                   closeSearch();
                   router.push(`/heroes/${hero.id}`);
@@ -98,29 +98,29 @@ export function SearchModal() {
                   <img
                     src={hero.avatarUrl}
                     alt={hero.name}
-                    className="w-10 h-10 rounded-xl object-cover border border-[var(--card-border)]"
+                    className="w-9 h-9 rounded-lg object-cover border border-[var(--border-subtle)]"
                   />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-sm text-[var(--foreground)] group-hover:text-[#ff5722] transition-colors">
+                      <span className="font-semibold text-sm text-[var(--foreground)] group-hover:text-[#e95325] transition-colors">
                         {hero.name}
                       </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--pill-bg)] text-[var(--muted-text)] font-semibold">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-[var(--pill-bg)] text-[var(--muted-text)] font-medium">
                         {hero.industry}
                       </span>
                     </div>
                     <div className="text-xs text-[var(--muted-text)]">
-                      {hero.titleTag} • {hero.latestBlockbuster}
+                      {hero.region} Cinema • {hero.industry}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <span className="text-xs font-extrabold text-[#ff5722]">
+                    <span className="text-xs font-bold text-[#e95325] tabular-nums">
                       #{hero.currentRank}
                     </span>
-                    <div className="text-[10px] text-[var(--muted-text)] font-medium">
+                    <div className="text-[11px] text-[var(--muted-text)] tabular-nums">
                       {formatRupee(hero.totalBidAmount)}
                     </div>
                   </div>
@@ -131,7 +131,7 @@ export function SearchModal() {
                       closeSearch();
                       openBidModal(hero);
                     }}
-                    className="p-2 rounded-xl bg-[var(--pill-bg)] hover:bg-[#ff5722] hover:text-white text-[var(--foreground)] transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg bg-[var(--pill-bg)] hover:bg-[#e95325] hover:text-white text-[var(--foreground)] transition-colors cursor-pointer"
                     title="Outbid"
                   >
                     <Zap className="w-3.5 h-3.5 fill-current" />

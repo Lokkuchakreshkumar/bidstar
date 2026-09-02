@@ -1,10 +1,16 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
-import { Hero, Bid, ActivityEvent, HeroRequest, Region, Industry, TimeWindow, UserProfile, PlatformStats } from '@/types';
+import { Hero, Bid, ActivityEvent, HeroRequest, Region, Industry, TimeWindow, UserProfile, PlatformStats, PromoAdjustment, AdminFinancials, PaymentRecord } from '@/types';
 import { INITIAL_HEROES } from '@/data/initialHeroes';
 import { sound } from '@/lib/sound';
 import confetti from 'canvas-confetti';
+
+interface ApiErrorNotification {
+  message: string;
+  fallback: string;
+  code?: string;
+}
 
 interface CinebidContextType {
   heroes: Hero[];
@@ -24,6 +30,9 @@ interface CinebidContextType {
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
   sseConnected: boolean;
+  // Error Handling
+  apiError: ApiErrorNotification | null;
+  clearApiError: () => void;
   // Modals
   activeBidHero: Hero | null;
   openBidModal: (hero: Hero) => void;
@@ -43,6 +52,13 @@ interface CinebidContextType {
   adminCreateHero: (hero: Partial<Hero>) => Promise<void>;
   adminToggleHeroActive: (heroId: string) => Promise<void>;
   adminApproveRequest: (requestId: string) => Promise<void>;
+  adminRejectRequest: (requestId: string) => Promise<void>;
+  adminResetData: () => Promise<void>;
+  adminUpdateInitialPush: (heroId: string, pushAmount: number, reason?: string, adminKey?: string) => Promise<{ success: boolean; message?: string }>;
+  adminFinancials: AdminFinancials | null;
+  adminAdjustments: PromoAdjustment[];
+  adminPayments: PaymentRecord[];
+  refreshFinancials: () => Promise<void>;
   getHeroById: (id: string) => Hero | undefined;
   getTopSupportersGlobal: () => { username: string; totalAmount: number; topHeroName: string; bidsCount: number }[];
   currentLeader: Hero;
@@ -77,12 +93,30 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
   const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [sseConnected, setSseConnected] = useState<boolean>(false);
+  const [apiError, setApiError] = useState<ApiErrorNotification | null>(null);
+  const [adminFinancials, setAdminFinancials] = useState<AdminFinancials | null>(null);
+  const [adminAdjustments, setAdminAdjustments] = useState<PromoAdjustment[]>([]);
+  const [adminPayments, setAdminPayments] = useState<PaymentRecord[]>([]);
 
   // Modals state
   const [activeBidHero, setActiveBidHero] = useState<Hero | null>(null);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [shareHero, setShareHero] = useState<Hero | null>(null);
+
+  const clearApiError = useCallback(() => {
+    setApiError(null);
+  }, []);
+
+  // Auto-dismiss API errors after 6 seconds
+  useEffect(() => {
+    if (apiError) {
+      const timer = setTimeout(() => {
+        setApiError(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [apiError]);
 
   // Load user profile from localStorage
   useEffect(() => {
@@ -113,7 +147,7 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
       const heroesRes = await fetch('/api/heroes');
       if (heroesRes.ok) {
         const json = await heroesRes.json();
-        if (json.data && json.data.length > 0) {
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
           setHeroes(json.data);
         }
       }
@@ -247,13 +281,19 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
       : timeWindow === 'this-week'
       ? currentLeader.weekBidAmount
       : currentLeader.totalBidAmount;
-    return leaderAmount + 10;
+    return leaderAmount > 0 ? leaderAmount + 10 : 50;
   }, [currentLeader, timeWindow]);
 
-  // Place a Bid via Server API
+  // Place a Bid via Server API with ACID transaction guarantee
   const placeBid = useCallback(
     async (heroId: string, amount: number, note?: string, customUsername?: string) => {
-      if (amount <= 0) return { success: false, newRank: 0, previousRank: 0 };
+      if (amount < 50) {
+        setApiError({
+          message: 'Minimum contribution amount is ₹50',
+          fallback: 'Please choose an amount of ₹50 or higher.',
+        });
+        return { success: false, newRank: 0, previousRank: 0 };
+      }
 
       const bidderUsername = (customUsername && customUsername.trim()) || user.username || 'fan';
       if (customUsername && customUsername.trim() && customUsername !== user.username) {
@@ -274,8 +314,9 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
           }),
         });
 
-        if (response.ok) {
-          const resJson = await response.json();
+        const resJson = await response.json();
+
+        if (response.ok && resJson.success) {
           const { hero, event, previousRank, newRank, becameRankOne } = resJson.data;
 
           setHeroes((prev) =>
@@ -315,9 +356,20 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
           }
 
           return { success: true, newRank, previousRank };
+        } else {
+          setApiError({
+            message: resJson.error?.message || 'Transaction could not be completed',
+            fallback: resJson.fallback || 'Your bid was not recorded. No changes were made.',
+            code: resJson.error?.code,
+          });
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Server bid failed:', err);
+        setApiError({
+          message: 'Network connection issue while placing bid.',
+          fallback: 'Please check your internet connection and try again.',
+          code: 'DB_CONNECTION_ERROR',
+        });
       }
 
       return { success: false, newRank: 0, previousRank: 0 };
@@ -341,12 +393,23 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
           }),
         });
 
-        if (res.ok) {
-          const json = await res.json();
+        const json = await res.json();
+        if (res.ok && json.success) {
           setHeroRequests((prev) => [json.data, ...prev]);
+        } else {
+          setApiError({
+            message: json.error?.message || 'Failed to submit recommendation',
+            fallback: json.fallback || 'Suggestion could not be saved to MongoDB.',
+            code: json.error?.code,
+          });
         }
       } catch (err) {
         console.error('Request hero failed:', err);
+        setApiError({
+          message: 'Failed to communicate with suggestion endpoint.',
+          fallback: 'Please try again in a few moments.',
+          code: 'DB_CONNECTION_ERROR',
+        });
       }
     },
     [user.username]
@@ -360,9 +423,14 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(heroData),
       });
-      if (res.ok) {
-        const json = await res.json();
+      const json = await res.json();
+      if (res.ok && json.success) {
         setHeroes((prev) => [...prev, json.data]);
+      } else {
+        setApiError({
+          message: json.error?.message || 'Could not create hero',
+          fallback: json.fallback || 'Hero could not be saved in MongoDB.',
+        });
       }
     } catch (err) {
       console.error('Admin create hero error:', err);
@@ -379,7 +447,8 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: !current.active }),
       });
-      if (res.ok) {
+      const json = await res.json();
+      if (res.ok && json.success) {
         setHeroes((prev) =>
           prev.map((h) => (h.id === heroId ? { ...h, active: !h.active } : h))
         );
@@ -394,17 +463,90 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`/api/requests/${requestId}/approve`, {
         method: 'POST',
       });
-      if (res.ok) {
-        const json = await res.json();
+      const json = await res.json();
+      if (res.ok && json.success) {
         setHeroes((prev) => [...prev, json.data]);
         setHeroRequests((prev) =>
           prev.map((r) => (r.id === requestId ? { ...r, status: 'APPROVED' } : r))
         );
+      } else {
+        setApiError({
+          message: json.error?.message || 'Failed to approve request',
+          fallback: json.fallback || 'Could not publish hero.',
+        });
       }
     } catch (err) {
       console.error('Admin approve request error:', err);
     }
   }, []);
+
+  const adminRejectRequest = useCallback(async (requestId: string) => {
+    try {
+      const res = await fetch(`/api/requests/${requestId}/reject`, {
+        method: 'POST',
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setHeroRequests((prev) =>
+          prev.map((r) => (r.id === requestId ? { ...r, status: 'REJECTED' } : r))
+        );
+      }
+    } catch (err) {
+      console.error('Admin reject request error:', err);
+    }
+  }, []);
+
+  const adminResetData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/reset', { method: 'POST' });
+      if (res.ok) {
+        await refreshData();
+      }
+    } catch (err) {
+      console.error('Admin reset data error:', err);
+    }
+  }, [refreshData]);
+
+  const refreshFinancials = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/financials');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setAdminFinancials(json.data.financials);
+          setAdminAdjustments(json.data.adjustments || []);
+          setAdminPayments(json.data.payments || []);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch admin financials:', err);
+    }
+  }, []);
+
+  const adminUpdateInitialPush = useCallback(
+    async (heroId: string, pushAmount: number, reason?: string, adminKey?: string) => {
+      try {
+        const res = await fetch('/api/admin/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ heroId, initialPushAmount: pushAmount, reason, adminKey }),
+        });
+        const json = await res.json();
+        if (res.ok && json.success) {
+          await refreshData();
+          await refreshFinancials();
+          return { success: true, message: json.message };
+        } else {
+          const errMsg = json.error?.message || json.fallback || 'Failed to update initial push';
+          return { success: false, message: errMsg };
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Network error';
+        return { success: false, message };
+      }
+    },
+    [refreshData, refreshFinancials]
+  );
 
   const getHeroById = useCallback(
     (id: string) => heroes.find((h) => h.id === id),
@@ -415,7 +557,7 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
     const supporterMap = new Map<string, { totalAmount: number; heroAmounts: Map<string, number>; bidsCount: number }>();
 
     heroes.forEach((h) => {
-      h.topSupporters.forEach((s) => {
+      (h.topSupporters || []).forEach((s) => {
         const existing = supporterMap.get(s.username) || { totalAmount: 0, heroAmounts: new Map<string, number>(), bidsCount: 0 };
         existing.totalAmount += s.totalAmount;
         existing.bidsCount += s.bidCount;
@@ -504,6 +646,8 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
         soundEnabled,
         setSoundEnabled,
         sseConnected,
+        apiError,
+        clearApiError,
         activeBidHero,
         openBidModal,
         closeBidModal,
@@ -521,6 +665,13 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
         adminCreateHero,
         adminToggleHeroActive,
         adminApproveRequest,
+        adminRejectRequest,
+        adminResetData,
+        adminUpdateInitialPush,
+        adminFinancials,
+        adminAdjustments,
+        adminPayments,
+        refreshFinancials,
         getHeroById,
         getTopSupportersGlobal,
         currentLeader,
@@ -528,6 +679,33 @@ export function CinebidProvider({ children }: { children: React.ReactNode }) {
         refreshData,
       }}
     >
+      {/* Global Fallback & API Error Banner */}
+      {apiError && (
+        <div className="fixed top-18 right-4 z-50 max-w-md w-full bg-[#1c1b1a] border border-amber-500/30 text-[var(--foreground)] p-4 rounded-xl shadow-2xl animate-in slide-in-from-top-3 duration-200">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                  {apiError.code || 'Notice'}
+                </h4>
+              </div>
+              <p className="text-xs text-[var(--foreground)] font-medium mt-1">
+                {apiError.message}
+              </p>
+              <p className="text-[11px] text-[var(--muted-text)] mt-1 border-t border-[var(--border-subtle)] pt-1">
+                {apiError.fallback}
+              </p>
+            </div>
+            <button
+              onClick={clearApiError}
+              className="text-[var(--muted-text)] hover:text-[var(--foreground)] text-xs font-bold p-1 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
       {children}
     </CinebidContext.Provider>
   );

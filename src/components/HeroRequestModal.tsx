@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useCinebid } from '@/context/CinebidContext';
-import { Industry, Region } from '@/types';
+import { Industry } from '@/types';
 import { X, PlusCircle, CheckCircle2 } from 'lucide-react';
 
 export function HeroRequestModal() {
@@ -27,19 +27,19 @@ export function HeroRequestModal() {
       setName('');
       setReason('');
       closeRequestModal();
-    }, 1800);
+    }, 1500);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="relative w-full max-w-md rounded-3xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-2xl p-6 overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-md rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-2xl p-6 overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between pb-3 border-b border-[var(--card-border)]">
+        <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
           <div className="flex items-center gap-2">
-            <PlusCircle className="w-4 h-4 text-[#ff5722]" />
-            <h3 className="font-extrabold text-sm text-[var(--foreground)]">Suggest a New Hero</h3>
+            <PlusCircle className="w-4 h-4 text-[#e95325]" />
+            <h3 className="font-bold text-sm text-[var(--foreground)]">Suggest a New Hero</h3>
           </div>
 
           <button
@@ -52,19 +52,19 @@ export function HeroRequestModal() {
 
         {submitted ? (
           <div className="py-8 text-center">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto mb-3">
-              <CheckCircle2 className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
-            <h4 className="font-extrabold text-base text-[var(--foreground)]">Request Submitted!</h4>
+            <h4 className="font-bold text-base text-[var(--foreground)]">Request Submitted</h4>
             <p className="mt-1 text-xs text-[var(--muted-text)]">
-              Our curators will review and publish {name} to Cinebid.
+              Our curators will review and list {name} on bidstar.
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-text)] mb-1.5">
-                Hero / Superstar Name *
+              <label className="block text-xs font-medium text-[var(--muted-text)] mb-1">
+                Superstar name *
               </label>
               <input
                 type="text"
@@ -72,13 +72,13 @@ export function HeroRequestModal() {
                 placeholder="e.g. Nani, Sivakarthikeyan, Dulquer, Kartik Aaryan..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-sm font-semibold text-[var(--foreground)] focus:outline-hidden focus:border-[#ff5722]"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs font-medium text-[var(--foreground)] focus:outline-hidden focus:border-[#e95325]"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-text)] mb-1.5">
+                <label className="block text-xs font-medium text-[var(--muted-text)] mb-1">
                   Region *
                 </label>
                 <select
@@ -89,21 +89,21 @@ export function HeroRequestModal() {
                     if (r === 'North') setIndustry('Hindi');
                     if (r === 'South') setIndustry('Telugu');
                   }}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs font-semibold text-[var(--foreground)] focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs font-medium text-[var(--foreground)] focus:outline-hidden"
                 >
-                  <option value="South">🔥 South Indian</option>
-                  <option value="North">⭐ North / Bollywood</option>
+                  <option value="South">South Cinema</option>
+                  <option value="North">North Cinema</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-text)] mb-1.5">
+                <label className="block text-xs font-medium text-[var(--muted-text)] mb-1">
                   Industry *
                 </label>
                 <select
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value as Industry)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs font-semibold text-[var(--foreground)] focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs font-medium text-[var(--foreground)] focus:outline-hidden"
                 >
                   {region === 'South' ? (
                     <>
@@ -120,22 +120,22 @@ export function HeroRequestModal() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-text)] mb-1.5">
+              <label className="block text-xs font-medium text-[var(--muted-text)] mb-1">
                 Reason / Recent Hits (Optional)
               </label>
               <textarea
                 rows={3}
-                placeholder="Mention recent box office hits or why they should be on Cinebid..."
+                placeholder="Mention recent box office hits or why they should be on bidstar..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs text-[var(--foreground)] focus:outline-hidden focus:border-[#ff5722]"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs text-[var(--foreground)] focus:outline-hidden focus:border-[#e95325]"
               />
             </div>
 
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-[#ff5722] hover:bg-[#f4511e] text-white font-bold text-xs tracking-tight shadow-md shadow-[#ff5722]/30 transition-all hover:scale-[1.01] active:scale-98 cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#e95325] hover:bg-[#d84417] text-white font-semibold text-xs tracking-tight transition-all cursor-pointer"
               >
                 Submit Recommendation
               </button>

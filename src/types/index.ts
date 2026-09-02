@@ -22,11 +22,15 @@ export interface Hero {
   region: 'South' | 'North';
   industry: Industry;
   titleTag: string; // e.g. "Icon Star", "Rebel Star", "King Khan"
-  latestBlockbuster: string; // e.g. "Pushpa 2: The Rule", "Kalki 2898 AD"
-  bio: string;
-  totalBidAmount: number; // All-time backing in INR
+  latestBlockbuster?: string;
+  bio?: string;
+  totalBidAmount: number; // All-time backing in INR (realPaidAmount + initialPushAmount)
   todayBidAmount: number; // Today's backing in INR
   weekBidAmount: number; // This week's backing in INR
+  initialPushAmount?: number; // Admin promotional / seed baseline in INR
+  realPaidAmount?: number; // Actual fan payments collected via Dodo in INR
+  todayRealAmount?: number;
+  weekRealAmount?: number;
   totalBidCount: number;
   supportersCount: number;
   currentRank: number;
@@ -109,4 +113,43 @@ export interface PlatformStats {
   onlineCount: number;
   topSouthHero: { name: string; amount: number; rank: number };
   topNorthHero: { name: string; amount: number; rank: number };
+}
+
+export interface PaymentRecord {
+  sessionId: string;
+  paymentId?: string;
+  idempotencyKey?: string;
+  checkoutUrl?: string;
+  heroId: string;
+  heroName: string;
+  userId: string;
+  username: string;
+  userAvatar?: string;
+  amount: number;
+  currency: string;
+  note?: string;
+  customerEmail?: string;
+  status: 'PENDING' | 'PAID' | 'FAILED';
+  createdAt: string;
+  fulfilledAt?: string;
+}
+
+export interface PromoAdjustment {
+  id: string;
+  heroId: string;
+  heroName: string;
+  previousPushAmount: number;
+  newPushAmount: number;
+  delta: number;
+  updatedBy: string;
+  reason?: string;
+  createdAt: string;
+}
+
+export interface AdminFinancials {
+  totalRealPayments: number;
+  totalPromoPush: number;
+  totalDisplayVolume: number;
+  realPaymentsCount: number;
+  heroesCount: number;
 }

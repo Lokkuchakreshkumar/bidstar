@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db } from '@/server/db';
+import { apiSuccess, apiError } from '@/server/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,14 +10,13 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const hero = db.approveRequest(id);
-    return NextResponse.json({
-      success: true,
-      message: `Request approved. Hero "${hero.name}" has been published!`,
-      data: hero,
-    });
+    const hero = await db.approveRequest(id);
+    return apiSuccess(
+      hero,
+      { message: `Request approved. Hero "${hero.name}" has been published to the leaderboard!` }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    return apiError('NOT_FOUND', message, 400);
   }
 }

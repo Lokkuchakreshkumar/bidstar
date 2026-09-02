@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useCinebid } from '@/context/CinebidContext';
 import { formatRupee, formatTimeAgo } from '@/lib/formatters';
-import { Activity, Flame, Zap, Crown, Radio, Film } from 'lucide-react';
+import { Flame, Zap, Crown, Radio } from 'lucide-react';
 
-export default function ActivityPage() {
+export function ActivityPage() {
   const { activityFeed, sseConnected, openBidModal, heroes } = useCinebid();
   const [filterType, setFilterType] = useState<'ALL' | 'RANK_1' | 'SUPPORTER' | 'BIDS'>('ALL');
 
@@ -20,14 +20,14 @@ export default function ActivityPage() {
   return (
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[var(--card-border)] mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[var(--border-subtle)] mb-6">
         <div>
           <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
+            <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-[var(--foreground)] tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--foreground)] tracking-tight">
               Live Activity Stream
             </h1>
           </div>
@@ -37,8 +37,8 @@ export default function ActivityPage() {
         </div>
 
         {/* Real-time SSE Connection Indicator */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold self-start sm:self-auto">
-          <Radio className="w-3.5 h-3.5 animate-pulse" />
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--pill-bg)] border border-[var(--pill-border)] text-[var(--muted-text)] text-xs font-medium self-start sm:self-auto">
+          <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
           <span>{sseConnected ? 'Real-Time SSE Connected' : 'Live Stream Active'}</span>
         </div>
       </div>
@@ -47,16 +47,16 @@ export default function ActivityPage() {
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mb-6">
         {[
           { id: 'ALL', label: 'All Activity' },
-          { id: 'RANK_1', label: '🔥 Rank #1 Overtakes' },
-          { id: 'SUPPORTER', label: '👑 Top Supporter Wars' },
-          { id: 'BIDS', label: '⚡ Backing Bids' },
+          { id: 'RANK_1', label: 'Rank #1 Overtakes' },
+          { id: 'SUPPORTER', label: 'Top Supporter Wars' },
+          { id: 'BIDS', label: 'Backing Bids' },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setFilterType(tab.id as 'ALL' | 'RANK_1' | 'SUPPORTER' | 'BIDS')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
               filterType === tab.id
-                ? 'bg-[#ff5722] text-white shadow-xs shadow-[#ff5722]/30'
+                ? 'bg-[var(--foreground)] text-[var(--background)] font-semibold'
                 : 'bg-[var(--pill-bg)] border border-[var(--pill-border)] text-[var(--muted-text)] hover:text-[var(--foreground)]'
             }`}
           >
@@ -66,7 +66,7 @@ export default function ActivityPage() {
       </div>
 
       {/* Events List */}
-      <div className="rounded-3xl bg-[var(--card-bg)] border border-[var(--card-border)] overflow-hidden shadow-xs divide-y divide-[var(--card-border)]/50">
+      <div className="rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] overflow-hidden shadow-xs divide-y divide-[var(--border-subtle)]">
         {filteredEvents.length > 0 ? (
           filteredEvents.map((evt) => {
             const isRankOne = evt.type === 'RANK_1_OVERTAKE';
@@ -79,47 +79,47 @@ export default function ActivityPage() {
                 className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-[var(--card-hover)] transition-colors group"
               >
                 <div className="flex items-center gap-3.5 overflow-hidden">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                     isRankOne
-                      ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                      ? 'bg-amber-500/10 text-amber-500'
                       : isSupporterOvertake
-                      ? 'bg-purple-500/15 text-purple-500 border border-purple-500/30'
-                      : 'bg-[#ff5722]/15 text-[#ff5722] border border-[#ff5722]/30'
+                      ? 'bg-purple-500/10 text-purple-400'
+                      : 'bg-[var(--pill-bg)] text-[#e95325]'
                   }`}>
                     {isRankOne ? (
-                      <Flame className="w-5 h-5 fill-current" />
+                      <Flame className="w-4 h-4 fill-current" />
                     ) : isSupporterOvertake ? (
-                      <Crown className="w-5 h-5" />
+                      <Crown className="w-4 h-4" />
                     ) : (
-                      <Zap className="w-5 h-5 fill-current" />
+                      <Zap className="w-4 h-4 fill-current" />
                     )}
                   </div>
 
                   <div className="truncate">
-                    <div className="text-xs sm:text-sm font-extrabold text-[var(--foreground)]">
-                      <span className="text-[#ff5722]">@{evt.username}</span>{' '}
+                    <div className="text-xs sm:text-sm font-semibold text-[var(--foreground)]">
+                      <span className="text-[var(--foreground)]">@{evt.username}</span>{' '}
                       {isRankOne ? (
-                        <span className="text-amber-500">
-                          took #1 position for <Link href={`/heroes/${evt.heroId}`} className="underline text-[var(--foreground)]">{evt.heroName}</Link>!
+                        <span className="text-amber-500 font-medium">
+                          claimed #1 for <Link href={`/heroes/${evt.heroId}`} className="underline text-[var(--foreground)]">{evt.heroName}</Link>
                         </span>
                       ) : isSupporterOvertake ? (
-                        <span>
-                          became #1 Top Supporter for <Link href={`/heroes/${evt.heroId}`} className="underline text-[#ff5722]">{evt.heroName}</Link>
+                        <span className="text-purple-400 font-medium">
+                          became #1 supporter for <Link href={`/heroes/${evt.heroId}`} className="underline text-[var(--foreground)]">{evt.heroName}</Link>
                         </span>
                       ) : (
-                        <span>
+                        <span className="text-[var(--muted-text)] font-normal">
                           backed <Link href={`/heroes/${evt.heroId}`} className="underline text-[var(--foreground)]">{evt.heroName}</Link>
                         </span>
                       )}
                     </div>
 
-                    <div className="text-[11px] text-[var(--muted-text)] mt-0.5 flex items-center gap-2">
-                      <span>{formatTimeAgo(evt.timestamp)}</span>
+                    <div className="text-xs text-[var(--muted-text)] mt-0.5 flex items-center gap-2">
+                      <span className="tabular-nums">{formatTimeAgo(evt.timestamp)}</span>
                       {evt.amount && (
                         <>
                           <span>•</span>
-                          <span className="font-bold text-[var(--foreground)]">
-                            Amount: {formatRupee(evt.amount)}
+                          <span className="font-semibold text-[var(--foreground)] tabular-nums">
+                            {formatRupee(evt.amount)}
                           </span>
                         </>
                       )}
@@ -130,7 +130,7 @@ export default function ActivityPage() {
                 {targetHero && (
                   <button
                     onClick={() => openBidModal(targetHero)}
-                    className="px-3.5 py-1.5 rounded-xl bg-[var(--pill-bg)] hover:bg-[#ff5722] text-[var(--foreground)] hover:text-white border border-[var(--pill-border)] text-xs font-bold transition-all shrink-0 cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-[var(--pill-bg)] hover:bg-[#e95325] hover:text-white text-[var(--foreground)] border border-[var(--pill-border)] text-xs font-semibold transition-all shrink-0 cursor-pointer"
                   >
                     Back Hero
                   </button>
@@ -140,10 +140,12 @@ export default function ActivityPage() {
           })
         ) : (
           <div className="p-12 text-center text-xs text-[var(--muted-text)]">
-            No live activity recorded yet. Place the first verified contribution to start the leaderboard battle!
+            No live activity recorded yet. Place the first contribution to initiate the leaderboard race.
           </div>
         )}
       </div>
     </div>
   );
 }
+
+export default ActivityPage;

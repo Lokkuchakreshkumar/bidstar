@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import Link from 'next/link';
 import { useCinebid } from '@/context/CinebidContext';
 import { formatRupee } from '@/lib/formatters';
 import { 
@@ -8,12 +9,8 @@ import {
   Zap, 
   ArrowUpRight, 
   CheckCircle2, 
-  CreditCard, 
-  QrCode, 
   Share2, 
   ShieldCheck, 
-  Sparkles,
-  Trophy,
   Flame
 } from 'lucide-react';
 
@@ -21,7 +18,6 @@ export function BidModal() {
   const { 
     activeBidHero, 
     closeBidModal, 
-    placeBid, 
     heroes, 
     currentLeader,
     timeWindow,
@@ -29,7 +25,6 @@ export function BidModal() {
     user 
   } = useCinebid();
 
-  // Leader amount
   const leaderAmount = timeWindow === 'today' 
     ? (currentLeader?.todayBidAmount || 0) 
     : timeWindow === 'this-week'
@@ -42,41 +37,43 @@ export function BidModal() {
     ? (activeBidHero?.weekBidAmount || 0)
     : (activeBidHero?.totalBidAmount || 0);
 
-  // Exact amount needed to take #1
   const isAlreadyLeader = activeBidHero?.id === currentLeader?.id;
   const amountToTakeNumberOne = isAlreadyLeader
-    ? 10 // Minimum increment to defend
-    : Math.max(10, (leaderAmount - heroCurrentAmount) + 10);
+    ? 50
+    : Math.max(50, (leaderAmount - heroCurrentAmount) + 10);
 
   const [bidAmount, setBidAmount] = useState<number>(amountToTakeNumberOne);
   const [customAmountInput, setCustomAmountInput] = useState<string>(amountToTakeNumberOne.toString());
-  const [supporterName, setSupporterName] = useState<string>(user.username || 'fan');
+  const [supporterName, setSupporterName] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('bidstar_fan_name') || localStorage.getItem('cinebid_fan_name');
+        if (saved && saved.trim()) return saved.trim();
+      } catch {}
+    }
+    return user?.username && user.username !== 'fan' ? user.username : '';
+  });
   const [fanNote, setFanNote] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [prevHeroId, setPrevHeroId] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<{
     newRank: number;
     previousRank: number;
     amountPaid: number;
   } | null>(null);
 
-  useEffect(() => {
-    if (user?.username) {
-      setSupporterName(user.username);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (activeBidHero) {
-      setBidAmount(amountToTakeNumberOne);
-      setCustomAmountInput(amountToTakeNumberOne.toString());
-    }
-  }, [activeBidHero, amountToTakeNumberOne]);
+  // Sync state when active hero changes during render (canonical React pattern)
+  if (activeBidHero && activeBidHero.id !== prevHeroId) {
+    setPrevHeroId(activeBidHero.id);
+    setBidAmount(amountToTakeNumberOne);
+    setCustomAmountInput(amountToTakeNumberOne.toString());
+    setErrorMessage(null);
+  }
 
   if (!activeBidHero) return null;
 
   const PRESETS = [50, 100, 250, 500, 1000, 2500, 5000];
-
   const projectedHeroTotal = heroCurrentAmount + bidAmount;
 
   const otherHeroes = heroes.filter((h) => h.id !== activeBidHero.id);
@@ -103,48 +100,80 @@ export function BidModal() {
   };
 
   const handleConfirmBid = async () => {
-    if (bidAmount < 10) return;
-    setIsProcessing(true);
+    const bidderUsername = supporterName.trim();
+    if (!bidderUsername || bidderUsername.length < 2) {
+      setErrorMessage('Please enter your fan name or handle (min 2 characters) to appear on the live leaderboard.');
+      return;
+    }
 
-    setTimeout(async () => {
-      const res = await placeBid(activeBidHero.id, bidAmount, fanNote, supporterName);
-      setIsProcessing(false);
-      if (res.success) {
-        setSuccessResult({
-          newRank: res.newRank,
-          previousRank: res.previousRank,
-          amountPaid: bidAmount,
-        });
+    if (bidAmount < 50) {
+      setErrorMessage('Minimum backing amount is ₹50.');
+      return;
+    }
+    setIsProcessing(true);
+    setErrorMessage(null);
+
+    try {
+      // Save name to localStorage for future use
+      try {
+        localStorage.setItem('bidstar_fan_name', bidderUsername);
+      } catch {}
+
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          heroId: activeBidHero.id,
+          amount: bidAmount,
+          username: bidderUsername,
+          userAvatar: user.avatarUrl,
+          note: fanNote.trim() || undefined,
+          userId: user.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.checkoutUrl) {
+        throw new Error(data.error || 'Failed to initialize Dodo checkout session');
       }
-    }, 800);
+
+      // Redirect directly to Dodo Payments hosted checkout
+      window.location.href = data.checkoutUrl;
+    } catch (err: unknown) {
+      console.error('Checkout error:', err);
+      const message = err instanceof Error ? err.message : 'Failed to initialize checkout. Please try again.';
+      setErrorMessage(message);
+      setIsProcessing(false);
+    }
   };
 
   const handleClose = () => {
     setSuccessResult(null);
+    setErrorMessage(null);
     closeBidModal();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="relative w-full max-w-lg rounded-3xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-2xl animate-in zoom-in-95 duration-150 overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-5 border-b border-[var(--card-border)] bg-[var(--pill-bg)]/40">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)] bg-[var(--pill-bg)]/30">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={activeBidHero.avatarUrl} 
               alt={activeBidHero.name} 
-              className="w-10 h-10 rounded-xl object-cover border border-[var(--card-border)]"
+              className="w-10 h-10 rounded-xl object-cover border border-[var(--border-subtle)]"
             />
             <div>
-              <h3 className="font-extrabold text-base text-[var(--foreground)] tracking-tight">
+              <h3 className="font-bold text-base text-[var(--foreground)] tracking-tight">
                 Back {activeBidHero.name}
               </h3>
-              <div className="text-xs font-semibold text-[#ff5722]">
-                Current Spot #{activeBidHero.currentRank} • {activeBidHero.region} Cinema • {formatRupee(heroCurrentAmount)} backed
+              <div className="text-xs text-[var(--muted-text)]">
+                Spot #{activeBidHero.currentRank} • {activeBidHero.region} Cinema • {formatRupee(heroCurrentAmount)} backed
               </div>
             </div>
           </div>
@@ -160,31 +189,31 @@ export function BidModal() {
         {/* Modal Body */}
         {successResult ? (
           <div className="p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4 animate-bounce">
-              <CheckCircle2 className="w-8 h-8" />
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
 
-            <h4 className="text-xl font-black text-[var(--foreground)] tracking-tight">
-              🎬 Contribution Applied!
+            <h4 className="text-lg font-bold text-[var(--foreground)] tracking-tight">
+              Contribution Applied
             </h4>
 
             <p className="mt-1 text-xs text-[var(--muted-text)]">
               Backed <strong className="text-[var(--foreground)]">{activeBidHero.name}</strong> with{' '}
-              <strong className="text-[#ff5722]">{formatRupee(successResult.amountPaid)}</strong>.
+              <strong className="text-[var(--foreground)] tabular-nums">{formatRupee(successResult.amountPaid)}</strong>.
             </p>
 
             {/* Rank Change Card */}
-            <div className="my-5 p-4 rounded-2xl bg-[var(--pill-bg)] border border-[var(--pill-border)] flex items-center justify-around">
+            <div className="my-5 p-4 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] flex items-center justify-around">
               <div className="text-center">
-                <div className="text-[10px] uppercase font-bold text-[var(--muted-text)]">Previous Spot</div>
-                <div className="text-lg font-extrabold text-[var(--muted-text)]">#{successResult.previousRank}</div>
+                <div className="text-[10px] uppercase font-semibold text-[var(--muted-text)]">Previous Spot</div>
+                <div className="text-lg font-bold text-[var(--muted-text)] tabular-nums">#{successResult.previousRank}</div>
               </div>
 
-              <div className="text-[#ff5722] font-black text-xl">→</div>
+              <div className="text-[#e95325] font-bold text-lg">→</div>
 
               <div className="text-center">
-                <div className="text-[10px] uppercase font-bold text-emerald-500">New Spot</div>
-                <div className="text-2xl font-black text-emerald-500 flex items-center gap-1 justify-center">
+                <div className="text-[10px] uppercase font-semibold text-emerald-500">New Spot</div>
+                <div className="text-2xl font-bold text-emerald-500 flex items-center gap-1 justify-center tabular-nums">
                   #{successResult.newRank}
                   {successResult.newRank < successResult.previousRank && (
                     <ArrowUpRight className="w-5 h-5 text-emerald-500" />
@@ -199,7 +228,7 @@ export function BidModal() {
                   handleClose();
                   openShareModal(activeBidHero);
                 }}
-                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#ff5722] hover:bg-[#f4511e] text-white text-xs font-bold transition-all shadow-md cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#e95325] hover:bg-[#d84417] text-white text-xs font-semibold transition-all cursor-pointer"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 <span>Share Spot Card</span>
@@ -207,7 +236,7 @@ export function BidModal() {
 
               <button
                 onClick={handleClose}
-                className="px-5 py-2.5 rounded-xl bg-[var(--pill-bg)] hover:bg-[var(--card-hover)] text-[var(--foreground)] border border-[var(--pill-border)] text-xs font-bold transition-all cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-[var(--pill-bg)] hover:bg-[var(--card-hover)] text-[var(--foreground)] border border-[var(--pill-border)] text-xs font-medium transition-all cursor-pointer"
               >
                 Done
               </button>
@@ -216,14 +245,14 @@ export function BidModal() {
         ) : (
           <div className="p-6">
             
-            {/* 1. Take #1 Callout Box */}
-            <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-[#ff5722]/15 via-[#ff5722]/10 to-transparent border border-[#ff5722]/30 flex items-center justify-between gap-3">
+            {/* 1. Take #1 Callout */}
+            <div className="mb-4 p-3 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] flex items-center justify-between gap-3">
               <div>
-                <div className="text-xs font-bold text-[#ff5722] flex items-center gap-1">
-                  <Flame className="w-4 h-4 fill-current" />
-                  <span>Amount to take #1 spot:</span>
+                <div className="text-xs font-medium text-[var(--muted-text)] flex items-center gap-1">
+                  <Flame className="w-3.5 h-3.5 text-[#e95325]" />
+                  <span>Amount to claim #1 spot:</span>
                 </div>
-                <div className="text-sm sm:text-base font-black text-[var(--foreground)] mt-0.5">
+                <div className="text-sm font-bold text-[var(--foreground)] mt-0.5 tabular-nums">
                   {formatRupee(amountToTakeNumberOne)} needed
                 </div>
               </div>
@@ -231,27 +260,27 @@ export function BidModal() {
               <button
                 type="button"
                 onClick={() => handleSelectPreset(amountToTakeNumberOne)}
-                className="px-3 py-1.5 rounded-xl bg-[#ff5722] hover:bg-[#f4511e] text-white text-xs font-bold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                className="px-3 py-1.5 rounded-lg bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
               >
-                Put {formatRupee(amountToTakeNumberOne)} for #1
+                Put {formatRupee(amountToTakeNumberOne)}
               </button>
             </div>
 
             {/* Quick Amount Presets */}
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--muted-text)] mb-2">
-              Select or Enter Contribution (INR)
+            <label className="block text-xs font-medium text-[var(--muted-text)] mb-2">
+              Select or enter contribution (INR)
             </label>
 
-            <div className="grid grid-cols-4 gap-2 mb-3">
+            <div className="grid grid-cols-4 gap-1.5 mb-3">
               {PRESETS.map((amt) => (
                 <button
                   key={amt}
                   type="button"
                   onClick={() => handleSelectPreset(amt)}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all cursor-pointer tabular-nums ${
                     bidAmount === amt
-                      ? 'bg-[#ff5722] text-white shadow-sm shadow-[#ff5722]/30 scale-[1.02]'
-                      : 'bg-[var(--pill-bg)] border border-[var(--pill-border)] text-[var(--foreground)] hover:border-[var(--muted-text)]'
+                      ? 'bg-[var(--foreground)] text-[var(--background)] font-semibold'
+                      : 'bg-[var(--pill-bg)] border border-[var(--pill-border)] text-[var(--foreground)] hover:border-[var(--card-border)]'
                   }`}
                 >
                   +{formatRupee(amt)}
@@ -260,131 +289,127 @@ export function BidModal() {
               <button
                 type="button"
                 onClick={() => handleSelectPreset(amountToTakeNumberOne)}
-                className={`py-2 px-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer tabular-nums ${
                   bidAmount === amountToTakeNumberOne
-                    ? 'bg-[#ff5722] text-white shadow-sm scale-[1.02]'
+                    ? 'bg-[#e95325] text-white'
                     : 'bg-amber-500/10 border border-amber-500/30 text-amber-500 hover:bg-amber-500/20'
                 }`}
-                title="Exact amount to take #1 spot"
+                title="Exact amount to claim #1 spot"
               >
-                Take #1
+                Claim #1
               </button>
             </div>
 
             {/* Custom Input */}
             <div className="relative flex items-center mb-4">
-              <span className="absolute left-4 font-black text-lg text-[var(--muted-text)]">₹</span>
+              <span className="absolute left-3.5 font-bold text-sm text-[var(--muted-text)]">₹</span>
               <input
                 type="text"
                 value={customAmountInput}
                 onChange={handleCustomInputChange}
-                className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-base font-black text-[var(--foreground)] focus:outline-hidden focus:border-[#ff5722] transition-colors tabular-nums"
+                className="w-full pl-8 pr-4 py-2 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-sm font-semibold text-[var(--foreground)] focus:outline-hidden focus:border-[#e95325] transition-colors tabular-nums"
                 placeholder="Enter custom amount"
               />
             </div>
 
-            {/* Real-time Calculation Card */}
-            <div className="p-3.5 rounded-2xl bg-[var(--pill-bg)] border border-[var(--pill-border)] space-y-1.5 text-xs">
-              <div className="flex items-center justify-between text-[var(--muted-text)] font-medium">
+            {/* Real-time Calculation */}
+            <div className="p-3.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] space-y-1.5 text-xs">
+              <div className="flex items-center justify-between text-[var(--muted-text)] font-normal">
                 <span>Current Backing:</span>
-                <span className="font-bold text-[var(--foreground)] tabular-nums">{formatRupee(heroCurrentAmount)}</span>
+                <span className="font-semibold text-[var(--foreground)] tabular-nums">{formatRupee(heroCurrentAmount)}</span>
               </div>
 
-              <div className="flex items-center justify-between text-[var(--muted-text)] font-medium">
-                <span>Projected Backing:</span>
-                <span className="font-bold text-[#ff5722] tabular-nums">{formatRupee(projectedHeroTotal)}</span>
+              <div className="flex items-center justify-between text-[var(--muted-text)] font-normal">
+                <span>Projected Total:</span>
+                <span className="font-bold text-[var(--foreground)] tabular-nums">{formatRupee(projectedHeroTotal)}</span>
               </div>
 
-              <div className="pt-2 border-t border-[var(--pill-border)] flex items-center justify-between font-bold">
-                <span className="flex items-center gap-1 text-[var(--foreground)]">
-                  <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                  Resulting Spot:
-                </span>
-                <span className={`px-2.5 py-0.5 rounded-md text-xs font-black ${
-                  projectedRank === 1 ? 'bg-amber-400 text-black animate-pulse' : 'bg-[var(--card-bg)] text-[#ff5722]'
-                }`}>
+              <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between font-semibold">
+                <span className="text-[var(--foreground)]">Resulting Spot:</span>
+                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-[var(--card-bg)] text-[#e95325] tabular-nums border border-[var(--card-border)]">
                   Spot #{projectedRank} {projectedRank < activeBidHero.currentRank ? '↑' : ''}
                 </span>
               </div>
-
-              {projectedRank === 1 && (
-                <div className="pt-1 text-[11px] text-amber-500 font-semibold flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  This contribution locks the #1 spot for {activeBidHero.name}!
-                </div>
-              )}
             </div>
 
             {/* Supporter Handle & Cheer Note */}
             <div className="mt-4 space-y-2.5">
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--muted-text)] mb-1">
-                  Your Supporter Handle / Fan Name
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-[var(--foreground)]">
+                    Your Fan Name / Handle <span className="text-[#e95325]">*</span>
+                  </label>
+                  <span className="text-[10px] text-[var(--muted-text)] font-medium">
+                    Saved on this device
+                  </span>
+                </div>
                 <input
                   type="text"
                   value={supporterName}
-                  onChange={(e) => setSupporterName(e.target.value)}
+                  onChange={(e) => {
+                    setSupporterName(e.target.value);
+                    try {
+                      localStorage.setItem('bidstar_fan_name', e.target.value);
+                    } catch {}
+                  }}
                   maxLength={30}
-                  className="w-full px-4 py-2 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs font-bold text-[var(--foreground)] focus:outline-hidden focus:border-[#ff5722] transition-colors"
-                  placeholder="e.g. chakresh, mega_fan, darling_diehard"
+                  className="w-full px-3.5 py-2 rounded-lg bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs font-semibold text-[var(--foreground)] placeholder-[var(--muted-text)]/50 focus:outline-hidden focus:border-[#e95325] transition-colors"
+                  placeholder="e.g. Rahul, SuperFan_Prabhas, BhaijaanArmy"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--muted-text)] mb-1">
-                  Fan Shoutout / Cheer Note (Optional)
+                <label className="block text-xs font-medium text-[var(--muted-text)] mb-1">
+                  Cheer note (optional)
                 </label>
                 <input
                   type="text"
                   value={fanNote}
                   onChange={(e) => setFanNote(e.target.value)}
                   maxLength={80}
-                  className="w-full px-4 py-2 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs text-[var(--foreground)] focus:outline-hidden focus:border-[#ff5722] transition-colors"
-                  placeholder="e.g. Rebel Star box office rampage! 💥"
+                  className="w-full px-3.5 py-1.5 rounded-lg bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs text-[var(--foreground)] focus:outline-hidden focus:border-[#e95325] transition-colors"
+                  placeholder="e.g. Rampage at the box office!"
                 />
               </div>
             </div>
 
-            {/* Payment Method Selector */}
-            <div className="mt-4">
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'upi', label: 'UPI / QR', icon: QrCode },
-                  { id: 'card', label: 'Card', icon: CreditCard },
-                  { id: 'netbanking', label: 'NetBanking', icon: ShieldCheck },
-                ].map((pm) => {
-                  const Icon = pm.icon;
-                  return (
-                    <button
-                      key={pm.id}
-                      type="button"
-                      onClick={() => setPaymentMethod(pm.id as 'upi' | 'card' | 'netbanking')}
-                      className={`p-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                        paymentMethod === pm.id
-                          ? 'bg-[var(--card-hover)] border-2 border-[#ff5722] text-[var(--foreground)]'
-                          : 'bg-[var(--pill-bg)] border border-[var(--pill-border)] text-[var(--muted-text)] hover:text-[var(--foreground)]'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{pm.label}</span>
-                    </button>
-                  );
-                })}
+            {/* Dodo Payments Trust Badge */}
+            <div className="mt-4 p-2.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--border-subtle)] flex items-center justify-between text-[11px] text-[var(--muted-text)]">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span className="truncate">Secured by <strong>Dodo Payments</strong> (MoR)</span>
+              </div>
+              <div className="flex items-center gap-1.5 font-medium text-[10px] text-[var(--foreground)] shrink-0">
+                <span className="px-1.5 py-0.5 rounded bg-[var(--card-bg)] border border-[var(--border-subtle)]">UPI</span>
+                <span className="px-1.5 py-0.5 rounded bg-[var(--card-bg)] border border-[var(--border-subtle)]">Cards</span>
+                <span className="px-1.5 py-0.5 rounded bg-[var(--card-bg)] border border-[var(--border-subtle)]">NetBanking</span>
               </div>
             </div>
 
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="mt-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                {errorMessage}
+              </div>
+            )}
+
+            {/* Compliance & Consumer Transparency Notice */}
+            <div className="mt-3.5 p-2.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--border-subtle)] text-[11px] text-[var(--muted-text)] leading-relaxed text-center">
+              <span>Voluntary fandom contribution for digital leaderboard rank & 3D collectible card. </span>
+              <span className="text-[var(--foreground)] font-medium">Non-refundable upon execution. No monetary prizes or financial returns.</span>
+            </div>
+
             {/* Action Button */}
-            <div className="mt-5">
+            <div className="mt-3">
               <button
                 onClick={handleConfirmBid}
-                disabled={bidAmount < 10 || isProcessing}
-                className="w-full py-3 rounded-2xl bg-[#ff5722] hover:bg-[#f4511e] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs sm:text-sm tracking-tight shadow-lg shadow-[#ff5722]/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-98 cursor-pointer"
+                disabled={bidAmount < 50 || isProcessing}
+                className="w-full py-2.5 rounded-xl bg-[#e95325] hover:bg-[#d84417] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs sm:text-sm tracking-tight flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#e95325]/15"
               >
                 {isProcessing ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    Processing Contribution...
+                    Connecting to Dodo Checkout...
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5">
@@ -393,6 +418,10 @@ export function BidModal() {
                   </span>
                 )}
               </button>
+
+              <div className="mt-2 text-center text-[10px] text-[var(--muted-text)]">
+                By paying, you agree to bidstar&apos;s <Link href="/terms" target="_blank" className="underline hover:text-[var(--foreground)]">Terms of Service</Link> & <Link href="/disclaimer" target="_blank" className="underline hover:text-[var(--foreground)]">Disclaimer</Link>.
+              </div>
             </div>
           </div>
         )}

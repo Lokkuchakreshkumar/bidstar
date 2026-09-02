@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db } from '@/server/db';
 import { Region, Industry, TimeWindow } from '@/types';
+import { apiSuccess, apiError } from '@/server/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,21 +14,29 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || undefined;
     const sortBy = searchParams.get('sortBy') || undefined;
 
-    const heroes = db.getHeroes({ region, industry, timeWindow, search, sortBy });
-    return NextResponse.json({ success: true, count: heroes.length, data: heroes });
+    const heroes = await db.getHeroes({ region, industry, timeWindow, search, sortBy });
+    return apiSuccess(heroes, { count: heroes.length });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to retrieve heroes';
+    return apiError(
+      'DB_CONNECTION_ERROR',
+      message,
+      500,
+      'Could not connect to MongoDB cluster to retrieve heroes.'
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const newHero = db.createHero(body);
-    return NextResponse.json({ success: true, data: newHero }, { status: 201 });
+    if (!body.name || !body.name.trim()) {
+      return apiError('VALIDATION_ERROR', 'Hero name is required', 400);
+    }
+    const newHero = await db.createHero(body);
+    return apiSuccess(newHero, { message: `Hero ${newHero.name} created successfully` }, 201);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    const message = error instanceof Error ? error.message : 'Failed to create hero';
+    return apiError('INTERNAL_ERROR', message, 400, 'Unable to create hero record in database.');
   }
 }

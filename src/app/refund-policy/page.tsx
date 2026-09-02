@@ -1,11 +1,11 @@
 import React from 'react';
 import Link from 'next/link';
-import { RefreshCw, ArrowLeft, Clock, ShieldCheck, Mail, AlertCircle, FileCheck } from 'lucide-react';
+import { ArrowLeft, Clock, ShieldCheck, Mail, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Cancellation & Refund Policy - Cinebid',
-  description: 'Cancellation and refund policies for transactions conducted on the Cinebid platform.',
+  title: 'Cancellation & Refund Policy - bidstar',
+  description: 'Official cancellation, technical error refund procedures, and chargeback resolution policy for bidstar.',
 };
 
 export default function RefundPolicyPage() {
@@ -14,97 +14,113 @@ export default function RefundPolicyPage() {
       {/* Back Link */}
       <Link
         href="/"
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--muted-text)] hover:text-[var(--foreground)] transition-colors mb-6"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--muted-text)] hover:text-[var(--foreground)] transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         <span>Back to Standings</span>
       </Link>
 
       {/* Header */}
-      <div className="rounded-3xl bg-[var(--card-bg)] border border-[var(--card-border)] p-6 sm:p-10 shadow-xs mb-8">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#ff5722]/10 text-[#ff5722] border border-[#ff5722]/20 mb-3">
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Purchase Protection</span>
-        </div>
-        <h1 className="text-2xl sm:text-4xl font-black text-[var(--foreground)] tracking-tight">
+      <div className="rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] p-6 sm:p-8 shadow-xs mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[var(--foreground)] tracking-tight">
           Cancellation & Refund Policy
         </h1>
         <p className="text-xs sm:text-sm text-[var(--muted-text)] mt-2 leading-relaxed">
-          Information regarding order cancellations, return requirements, refund timeframes, and claim procedures.
+          Transparent guidelines governing transaction cancellations, instant digital delivery, and technical error refund processing.
         </p>
+        <div className="mt-4 pt-4 border-t border-[var(--border-subtle)] flex items-center gap-4 text-xs text-[var(--muted-text)]">
+          <span>Last Updated: September 2026</span>
+          <span>•</span>
+          <span>In Compliance with: Consumer Protection (E-Commerce) Rules, 2020</span>
+        </div>
       </div>
 
       {/* Main Content */}
       <div className="space-y-6">
         
-        {/* Core Policy Card */}
-        <section className="p-6 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] space-y-4">
-          <div className="flex items-center gap-2 text-sm font-extrabold text-[var(--foreground)]">
-            <ShieldCheck className="w-4 h-4 text-[#ff5722]" />
-            <h2>Transaction Cancellation Terms</h2>
+        {/* Instant Digital Delivery & General Non-Refundable Rule */}
+        <section className="p-6 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+            <ShieldCheck className="w-4 h-4 text-[#e95325]" />
+            <h2>1. Instant Digital Fulfillment & Non-Refundable Nature</h2>
           </div>
           <p className="text-xs sm:text-sm text-[var(--muted-text)] leading-relaxed">
-            Upon completing a Transaction, you are entering into a legally binding and enforceable agreement with us to purchase the product and/or service. After this point, the User may cancel the Transaction unless it has been specifically provided for on the Platform. In which case, the cancellation will be subject to the terms mentioned on the Platform.
+            All paid contributions on <strong className="text-[var(--foreground)]">bidstar</strong> are consideration for real-time digital entertainment services. When you complete a transaction, the service is fulfilled immediately:
           </p>
+          <ul className="space-y-1.5 text-xs sm:text-sm text-[var(--muted-text)] leading-relaxed list-disc list-inside">
+            <li>Your chosen superstar&apos;s backing volume and ranking update across the entire platform in real time.</li>
+            <li>Your username and contribution are broadcast to all users via the live activity stream.</li>
+            <li>Your custom interactive 3D digital collectible card is generated and verified in the database.</li>
+          </ul>
           <p className="text-xs sm:text-sm text-[var(--muted-text)] leading-relaxed">
-            We shall retain the discretion in approving any cancellation requests, and we may ask for additional details before approving any requests.
-          </p>
-        </section>
-
-        {/* 3-Day Window & Criteria */}
-        <section className="p-6 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] space-y-4">
-          <div className="flex items-center gap-2 text-sm font-extrabold text-[var(--foreground)]">
-            <Clock className="w-4 h-4 text-[#ff5722]" />
-            <h2>Refund Eligibility & Timeframe</h2>
-          </div>
-          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-semibold flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>
-              Any request for a refund must be submitted within <strong>three (3) days</strong> from the date of the Transaction or such number of days prescribed on the Platform, which shall in no event be less than three days.
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-[var(--muted-text)] leading-relaxed">
-            Once you have received the product and/or service, the only event where you can request for a replacement or a return and a refund is if the product and/or service does not match the description as mentioned on the Platform.
+            Because digital entertainment benefits are consumed instantaneously upon transaction confirmation, <strong className="text-[var(--foreground)]">all successful fandom backing contributions are final and non-refundable</strong>.
           </p>
         </section>
 
-        {/* How to Claim */}
-        <section className="p-6 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] space-y-4">
-          <div className="flex items-center gap-2 text-sm font-extrabold text-[var(--foreground)]">
-            <FileCheck className="w-4 h-4 text-[#ff5722]" />
-            <h2>How to Submit a Refund Claim</h2>
+        {/* Technical Error & Duplicate Billing Exceptions */}
+        <section className="p-6 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+            <RefreshCw className="w-4 h-4 text-emerald-500" />
+            <h2>2. Eligible Refund Exceptions (Technical & Payment Errors)</h2>
           </div>
           <p className="text-xs sm:text-sm text-[var(--muted-text)] leading-relaxed">
-            A User may submit a claim for a refund for a purchase made by contacting our official support desk via email and providing a clear and specific reason for the refund request, including the exact terms that have been violated, along with any proof, if required.
+            We gladly issue full refunds in cases of verified technical discrepancies or unauthorized charges:
           </p>
-
-          <div className="p-4 rounded-2xl bg-[var(--pill-bg)] border border-[var(--pill-border)] space-y-2">
-            <div className="text-xs font-bold text-[var(--foreground)] flex items-center gap-2">
-              <Mail className="w-4 h-4 text-[#ff5722]" />
-              <span>Official Refund Contact:</span>
+          <div className="space-y-2.5">
+            <div className="p-3.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs text-[var(--muted-text)]">
+              <strong className="text-[var(--foreground)] block mb-0.5">A. Duplicate / Multiple Debits:</strong>
+              If your bank account or UPI was debited multiple times for a single intended backing due to network latency or gateway lag.
             </div>
-            <div className="font-mono text-xs text-[#ff5722] font-semibold break-all">
-              seller+fe2339eeffd542f990157042fd0b13eb@instamojo.com
+            <div className="p-3.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs text-[var(--muted-text)]">
+              <strong className="text-[var(--foreground)] block mb-0.5">B. Failed Credit (Debited but Not Recorded):</strong>
+              If funds were deducted from your payment instrument but the transaction failed on bidstar and did not reflect on the leaderboard.
+            </div>
+            <div className="p-3.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] text-xs text-[var(--muted-text)]">
+              <strong className="text-[var(--foreground)] block mb-0.5">C. Verified Fraudulent Transaction:</strong>
+              If a transaction was conducted using stolen payment details without the cardholder&apos;s authorization (subject to bank verification).
             </div>
           </div>
+        </section>
 
+        {/* Resolution Timeline */}
+        <section className="p-6 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+            <Clock className="w-4 h-4 text-[#e95325]" />
+            <h2>3. Claim Procedure & Refund Timeline</h2>
+          </div>
           <p className="text-xs sm:text-sm text-[var(--muted-text)] leading-relaxed">
-            Whether a refund will be provided will be determined by us in our sole discretion, and we may ask for additional details or transaction verification before approving any requests. Approved refunds will be processed back to the original Payment Instrument used during the transaction.
+            To report a technical failure or request a duplicate billing refund, contact our support desk within <strong>seven (7) calendar days</strong> of the transaction date.
           </p>
+          
+          <div className="p-4 rounded-xl bg-[var(--pill-bg)] border border-[var(--pill-border)] space-y-2">
+            <div className="text-xs font-semibold text-[var(--foreground)] flex items-center gap-1.5">
+              <Mail className="w-4 h-4 text-[#e95325]" />
+              <span>Official Refund & Technical Support:</span>
+            </div>
+            <div className="font-mono text-xs text-[#e95325]">support@bidstar.in</div>
+            <p className="text-[11px] text-[var(--muted-text)]">
+              Please provide: (1) Your UPI Ref ID / Payment ID, (2) Date and amount of transaction, and (3) Screenshot of bank deduction.
+            </p>
+          </div>
+
+          <div className="pt-2 flex items-center gap-2 text-xs text-emerald-500 font-medium">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Approved technical refunds are reversed within 5 to 7 business days directly to your original payment method.</span>
+          </div>
         </section>
 
       </div>
 
       {/* Policy Links */}
-      <div className="mt-8 pt-6 border-t border-[var(--card-border)] flex flex-wrap items-center justify-between gap-4 text-xs font-semibold">
-        <Link href="/terms" className="text-[#ff5722] hover:underline">
-          ← Terms & Conditions
+      <div className="mt-8 pt-6 border-t border-[var(--border-subtle)] flex flex-wrap items-center justify-between gap-4 text-xs font-medium">
+        <Link href="/terms" className="text-[var(--muted-text)] hover:text-[var(--foreground)]">
+          ← Terms of Service
         </Link>
-        <Link href="/shipping-policy" className="text-[#ff5722] hover:underline">
-          Shipping & Delivery Policy →
+        <Link href="/disclaimer" className="text-[var(--muted-text)] hover:text-[var(--foreground)]">
+          Legal Disclaimer →
         </Link>
-        <Link href="/contact" className="text-[#ff5722] hover:underline">
-          Contact Support Desk →
+        <Link href="/contact" className="text-[var(--muted-text)] hover:text-[var(--foreground)]">
+          Contact Customer Desk →
         </Link>
       </div>
     </div>
