@@ -101,41 +101,31 @@ export async function POST(request: NextRequest) {
 
     // 4. State Machine & ACID Fulfillment
     if (event.type === 'payment.succeeded') {
-      const paymentData = event.data;
-      const paymentId = paymentData?.payment_id;
-      const metadata = paymentData?.metadata || {};
-      const heroId = metadata.hero_id;
-      const username = metadata.username || paymentData?.customer?.name || 'fan';
-      const userId = metadata.user_id || 'anon-user';
-      const note = metadata.note || '';
+      const paymentData = event.data as Record<string, unknown> | undefined;
+      const paymentId = paymentData?.payment_id as string | undefined;
+      const metadata = (paymentData?.metadata || {}) as Record<string, unknown>;
+      const heroId = metadata.hero_id as string | undefined;
+      const username = (metadata.username || (paymentData?.customer as Record<string, unknown>)?.name || 'fan') as string;
+      const userId = (metadata.user_id || 'anon-user') as string;
+      const note = (metadata.note || '') as string;
+      const customerEmail = ((paymentData?.customer as Record<string, unknown>)?.email) as string | undefined;
 
       // Amount in paise -> INR
       const amount = metadata.amount_inr
         ? Number(metadata.amount_inr)
         : Math.round(Number(paymentData?.total_amount || 0) / 100);
 
-      // If a specific session ID was included, fulfill that pending session
-      const sessionId = metadata.session_id;
-      if (sessionId) {
-        try {
-          await db.fulfillPayment(sessionId, paymentId);
-          return NextResponse.json(
-            { received: true, fulfilledSession: sessionId, trace_id: traceId },
-            { status: 200, headers: { 'X-Trace-Id': traceId } }
-          );
-        } catch (e) {
-          console.warn(`[${traceId}] Could not fulfill payment by session ID, applying directly:`, e);
-        }
-      }
+      const checkoutSessionId = (paymentData?.checkout_session_id || metadata.session_id) as string | undefined;
 
-      // If heroId is available, apply bid directly inside ACID transaction
-      if (heroId && amount > 0) {
-        await db.createBid({
+      if (paymentId && heroId && amount > 0) {
+        await db.fulfillByPaymentId(paymentId, {
           heroId,
           amount,
+          sessionId: checkoutSessionId,
           userId,
           username,
           note,
+          customerEmail,
         });
       }
     }

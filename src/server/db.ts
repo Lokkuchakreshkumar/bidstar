@@ -721,6 +721,7 @@ export class MongoDatabaseEngine {
     details: {
       heroId: string;
       amount: number;
+      sessionId?: string;
       userId?: string;
       username?: string;
       userAvatar?: string;
@@ -738,25 +739,26 @@ export class MongoDatabaseEngine {
   }> {
     await this.ensureInitialized();
     const paymentsCol = await getPaymentsCollection();
-    const existing = await paymentsCol.findOne({ paymentId });
 
-    if (existing && existing.status === 'PAID') {
-      const hero = (await this.getHeroById(existing.heroId))!;
+    // 1. Check if this paymentId is already recorded as PAID
+    const existingByPaymentId = await paymentsCol.findOne({ paymentId });
+    if (existingByPaymentId && existingByPaymentId.status === 'PAID') {
+      const hero = (await this.getHeroById(existingByPaymentId.heroId))!;
       return {
         bid: {
           id: `bid-pay-${paymentId}`,
-          heroId: existing.heroId,
-          heroName: existing.heroName,
-          userId: existing.userId,
-          username: existing.username,
-          userAvatar: existing.userAvatar,
-          amount: existing.amount,
+          heroId: existingByPaymentId.heroId,
+          heroName: existingByPaymentId.heroName,
+          userId: existingByPaymentId.userId,
+          username: existingByPaymentId.username,
+          userAvatar: existingByPaymentId.userAvatar,
+          amount: existingByPaymentId.amount,
           currency: 'INR',
           status: 'PAID',
           rankAtBidTime: hero.currentRank,
           resultRank: hero.currentRank,
-          createdAt: existing.fulfilledAt || existing.createdAt,
-          note: existing.note,
+          createdAt: existingByPaymentId.fulfilledAt || existingByPaymentId.createdAt,
+          note: existingByPaymentId.note,
         },
         hero,
         event: {
@@ -765,13 +767,13 @@ export class MongoDatabaseEngine {
           heroId: hero.id,
           heroName: hero.name,
           heroAvatar: hero.avatarUrl,
-          userId: existing.userId,
-          username: existing.username,
-          userAvatar: existing.userAvatar,
-          amount: existing.amount,
+          userId: existingByPaymentId.userId,
+          username: existingByPaymentId.username,
+          userAvatar: existingByPaymentId.userAvatar,
+          amount: existingByPaymentId.amount,
           previousRank: hero.currentRank,
           newRank: hero.currentRank,
-          timestamp: existing.fulfilledAt || existing.createdAt,
+          timestamp: existingByPaymentId.fulfilledAt || existingByPaymentId.createdAt,
         },
         previousRank: hero.currentRank,
         newRank: hero.currentRank,
@@ -780,45 +782,79 @@ export class MongoDatabaseEngine {
       };
     }
 
+    // 2. Check if an existing checkout session document exists to reconcile
+    let targetSessionId = details.sessionId || existingByPaymentId?.sessionId;
+    let existingSessionDoc = targetSessionId ? await paymentsCol.findOne({ sessionId: targetSessionId }) : null;
+
+    // Fallback: If no sessionId provided, find the most recent pending session matching hero + amount within 1 hour
+    if (!existingSessionDoc) {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      existingSessionDoc = await paymentsCol.findOne({
+        heroId: details.heroId,
+        amount: details.amount,
+        status: 'PENDING',
+        createdAt: { $gte: oneHourAgo },
+      });
+      if (existingSessionDoc) {
+        targetSessionId = existingSessionDoc.sessionId;
+      }
+    }
+
     const hero = await this.getHeroById(details.heroId);
     if (!hero) {
       throw new Error(`Hero '${details.heroId}' not found`);
     }
 
     const now = new Date().toISOString();
-    const sessionId = existing?.sessionId || `session-for-${paymentId}`;
+    const finalSessionId = targetSessionId || existingSessionDoc?.sessionId || paymentId;
 
-    await paymentsCol.updateOne(
-      { paymentId },
-      {
-        $set: {
-          sessionId,
-          paymentId,
-          heroId: hero.id,
-          heroName: hero.name,
-          userId: details.userId || 'anon-user',
-          username: details.username || 'fan',
-          userAvatar: details.userAvatar,
-          amount: details.amount,
-          currency: 'INR',
-          note: details.note,
-          customerEmail: details.customerEmail,
-          status: 'PAID',
-          createdAt: existing?.createdAt || now,
-          fulfilledAt: now,
-          updatedAt: now,
+    if (existingSessionDoc) {
+      // Reconcile and update existing pending session into PAID
+      await paymentsCol.updateOne(
+        { sessionId: existingSessionDoc.sessionId },
+        {
+          $set: {
+            paymentId,
+            status: 'PAID',
+            fulfilledAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+    } else {
+      // Insert new payment record
+      await paymentsCol.updateOne(
+        { paymentId },
+        {
+          $set: {
+            sessionId: finalSessionId,
+            paymentId,
+            heroId: hero.id,
+            heroName: hero.name,
+            userId: details.userId || 'anon-user',
+            username: details.username || 'fan',
+            userAvatar: details.userAvatar,
+            amount: details.amount,
+            currency: 'INR',
+            note: details.note,
+            customerEmail: details.customerEmail,
+            status: 'PAID',
+            createdAt: now,
+            fulfilledAt: now,
+            updatedAt: now,
+          },
         },
-      },
-      { upsert: true }
-    );
+        { upsert: true }
+      );
+    }
 
     const result = await this.createBid({
       heroId: hero.id,
       amount: details.amount,
-      userId: details.userId || 'anon-user',
-      username: details.username || 'fan',
-      userAvatar: details.userAvatar,
-      note: details.note,
+      userId: details.userId || existingSessionDoc?.userId || 'anon-user',
+      username: details.username || existingSessionDoc?.username || 'fan',
+      userAvatar: details.userAvatar || existingSessionDoc?.userAvatar,
+      note: details.note || existingSessionDoc?.note,
     });
 
     return {

@@ -86,6 +86,14 @@ export default function BidstarAdminPage() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccessMessage, setResetSuccessMessage] = useState(false);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+
+  // Set current time for staleness checking without impure renders
+  useEffect(() => {
+    setCurrentTime(Date.now());
+    const timer = setInterval(() => setCurrentTime(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Check auth status on mount
   useEffect(() => {
@@ -950,19 +958,22 @@ export default function BidstarAdminPage() {
       {/* ==================== TAB 3: REAL TRANSACTIONS ==================== */}
       {activeTab === 'payments' && (
         <div className="rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] overflow-hidden shadow-xs">
-          <div className="p-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
+          <div className="p-4 border-b border-[var(--border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-emerald-400" />
                 <span>Real Payments Stream (Dodo Payments)</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 tabular-nums">
+                  {adminPayments.filter(p => p.status === 'PAID').length} Paid • ₹{formatNumber(adminFinancials?.totalRealPayments || 0)} Total
+                </span>
               </h2>
               <p className="text-xs text-[var(--muted-text)] mt-0.5">
-                Real transactions processed through payment gateways.
+                Real customer transactions processed through Dodo Payments gateways.
               </p>
             </div>
             <button
               onClick={() => refreshFinancials()}
-              className="text-xs text-[var(--muted-text)] hover:text-[var(--foreground)] flex items-center gap-1 cursor-pointer"
+              className="text-xs text-[var(--muted-text)] hover:text-[var(--foreground)] flex items-center gap-1 cursor-pointer self-start sm:self-auto"
             >
               <RefreshCw className="w-3 h-3" />
               <span>Refresh Payments</span>
@@ -975,49 +986,71 @@ export default function BidstarAdminPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[650px]">
+              <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead>
                   <tr className="border-b border-[var(--border-subtle)] bg-[var(--pill-bg)]/40 text-[11px] font-semibold text-[var(--muted-text)] uppercase tracking-wider">
                     <th className="py-3 px-4">Time</th>
-                    <th className="py-3 px-4">Hero</th>
+                    <th className="py-3 px-4">Superstar</th>
                     <th className="py-3 px-4">Fan</th>
                     <th className="py-3 px-4 text-right">Amount</th>
                     <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4">Session ID</th>
+                    <th className="py-3 px-4">Payment & Session Ref</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-subtle)] text-xs">
-                  {adminPayments.map((p) => (
-                    <tr key={p.sessionId} className="hover:bg-[var(--card-hover)] transition-colors">
-                      <td className="py-3 px-4 text-[var(--muted-text)] tabular-nums">
-                        {formatTimeAgo(p.createdAt)}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-[var(--foreground)]">
-                        {p.heroName}
-                      </td>
-                      <td className="py-3 px-4 text-[var(--muted-text)]">
-                        <span className="font-semibold text-[var(--foreground)]">@{p.username}</span>
-                        {p.customerEmail && (
-                          <div className="text-[10px] opacity-75">{p.customerEmail}</div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold tabular-nums text-emerald-400">
-                        {formatRupee(p.amount)}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          p.status === 'PAID'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}>
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-[10px] font-mono text-[var(--muted-text)] max-w-xs truncate">
-                        {p.sessionId}
-                      </td>
-                    </tr>
-                  ))}
+                  {adminPayments.map((p) => {
+                    const isPaid = p.status === 'PAID';
+                    const isStalePending = !isPaid && currentTime > 0 && (currentTime - new Date(p.createdAt).getTime() > 30 * 60 * 1000);
+
+                    return (
+                      <tr key={p.sessionId} className="hover:bg-[var(--card-hover)] transition-colors">
+                        <td className="py-3.5 px-4 text-[var(--muted-text)] tabular-nums">
+                          <div>{formatTimeAgo(p.fulfilledAt || p.createdAt)}</div>
+                          <div className="text-[10px] opacity-75">{new Date(p.createdAt).toLocaleTimeString()}</div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-[var(--foreground)]">{p.heroName}</span>
+                        </td>
+                        <td className="py-3.5 px-4 text-[var(--muted-text)]">
+                          <div className="font-semibold text-[var(--foreground)]">@{p.username}</div>
+                          {p.customerEmail && (
+                            <div className="text-[10px] text-[var(--muted-text)]">{p.customerEmail}</div>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold tabular-nums text-emerald-400 text-sm">
+                          {formatRupee(p.amount)}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            isPaid
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : isStalePending
+                              ? 'bg-[var(--pill-bg)] text-[var(--muted-text)] border border-[var(--pill-border)]'
+                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          }`}>
+                            {isPaid && <Check className="w-3 h-3" />}
+                            <span>{isPaid ? 'PAID' : isStalePending ? 'ABANDONED' : 'PENDING'}</span>
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-[11px]">
+                          {p.paymentId ? (
+                            <div className="space-y-0.5">
+                              <div className="font-mono font-semibold text-emerald-400 text-[11px]">
+                                {p.paymentId}
+                              </div>
+                              <div className="font-mono text-[10px] text-[var(--muted-text)] truncate max-w-xs">
+                                Session: {p.sessionId}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="font-mono text-[10px] text-[var(--muted-text)] truncate max-w-xs">
+                              {p.sessionId}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

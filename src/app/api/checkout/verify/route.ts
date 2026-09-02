@@ -40,10 +40,13 @@ export async function GET(request: NextRequest) {
           const userId = metadata.user_id ? String(metadata.user_id) : 'anon-user';
           const note = metadata.note ? String(metadata.note) : undefined;
 
+          const checkoutSessionId = dodoPayment.checkout_session_id || (metadata as Record<string, unknown>).session_id as string || sessionId || undefined;
+
           if (heroId) {
             const fulfillResult = await db.fulfillByPaymentId(paymentId, {
               heroId,
               amount: amount > 0 ? amount : 50,
+              sessionId: checkoutSessionId,
               userId,
               username,
               note,
