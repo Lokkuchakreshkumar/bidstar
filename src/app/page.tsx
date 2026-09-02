@@ -6,7 +6,6 @@ import { ClaimRankHero } from '@/components/ClaimRankHero';
 import { PodiumCards } from '@/components/PodiumCards';
 import { RankedHeroList } from '@/components/RankedHeroList';
 import { HomeSuggestSection } from '@/components/HomeSuggestSection';
-import { LiveActivityDock } from '@/components/LiveActivityDock';
 
 export default function HomePage() {
   return (
@@ -27,9 +26,6 @@ export default function HomePage() {
 
       {/* 5. Suggest Heroes Community Section */}
       <HomeSuggestSection />
-
-      {/* 6. Minimalist Live Activity Dock */}
-      <LiveActivityDock />
     </div>
   );
 }

@@ -93,6 +93,12 @@ export class MongoDatabaseEngine {
       const todayBidAmount = Math.max(Number(h.todayBidAmount || 0), Number(h.todayRealAmount || 0) + initialPushAmount);
       const weekBidAmount = Math.max(Number(h.weekBidAmount || 0), Number(h.weekRealAmount || 0) + initialPushAmount);
 
+      const promoBids = initialPushAmount > 0 ? Math.max(1, Math.ceil(initialPushAmount / 250)) : 0;
+      const promoSupporters = initialPushAmount > 0 ? Math.max(1, Math.ceil(initialPushAmount / 350)) : 0;
+
+      const totalBidCount = Number(h.totalBidCount || 0) + promoBids;
+      const supportersCount = Number(h.supportersCount || 0) + promoSupporters;
+
       return {
         id: h.id,
         name: h.name,
@@ -109,12 +115,12 @@ export class MongoDatabaseEngine {
         weekBidAmount,
         initialPushAmount,
         realPaidAmount,
-        totalBidCount: Number(h.totalBidCount || 0),
-        supportersCount: Number(h.supportersCount || 0),
+        totalBidCount,
+        supportersCount,
         currentRank: Number(h.currentRank || 1),
         previousRank: Number(h.previousRank || 1),
-        highestSingleBid: Number(h.highestSingleBid || 0),
-        lastBidAt: h.lastBidAt || '',
+        highestSingleBid: Math.max(Number(h.highestSingleBid || 0), initialPushAmount > 0 ? Math.min(initialPushAmount, 500) : 0),
+        lastBidAt: h.lastBidAt || (initialPushAmount > 0 ? h.updatedAt || h.createdAt || '' : ''),
         active: h.active !== false,
         topSupporters: (h.topSupporters || []) as SupporterContribution[],
       };
@@ -162,6 +168,12 @@ export class MongoDatabaseEngine {
     const todayBidAmount = Math.max(Number(raw.todayBidAmount || 0), Number(raw.todayRealAmount || 0) + initialPushAmount);
     const weekBidAmount = Math.max(Number(raw.weekBidAmount || 0), Number(raw.weekRealAmount || 0) + initialPushAmount);
 
+    const promoBids = initialPushAmount > 0 ? Math.max(1, Math.ceil(initialPushAmount / 250)) : 0;
+    const promoSupporters = initialPushAmount > 0 ? Math.max(1, Math.ceil(initialPushAmount / 350)) : 0;
+
+    const totalBidCount = Number(raw.totalBidCount || 0) + promoBids;
+    const supportersCount = Number(raw.supportersCount || 0) + promoSupporters;
+
     return {
       id: raw.id,
       name: raw.name,
@@ -178,12 +190,12 @@ export class MongoDatabaseEngine {
       weekBidAmount,
       initialPushAmount,
       realPaidAmount,
-      totalBidCount: Number(raw.totalBidCount || 0),
-      supportersCount: Number(raw.supportersCount || 0),
+      totalBidCount,
+      supportersCount,
       currentRank: Number(raw.currentRank || 1),
       previousRank: Number(raw.previousRank || 1),
-      highestSingleBid: Number(raw.highestSingleBid || 0),
-      lastBidAt: raw.lastBidAt || '',
+      highestSingleBid: Math.max(Number(raw.highestSingleBid || 0), initialPushAmount > 0 ? Math.min(initialPushAmount, 500) : 0),
+      lastBidAt: raw.lastBidAt || (initialPushAmount > 0 ? raw.updatedAt || raw.createdAt || '' : ''),
       active: raw.active !== false,
       topSupporters: (raw.topSupporters || []) as SupporterContribution[],
     };
@@ -1078,49 +1090,16 @@ export class MongoDatabaseEngine {
   // --- PLATFORM STATS ---
   public async getStats(): Promise<PlatformStats> {
     await this.ensureInitialized();
-    const bidsCol = await getBidsCollection();
     const heroesCol = await getHeroesCollection();
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const statsAgg = await bidsCol
-      .aggregate<{
-        totalVolume: number;
-        totalBids: number;
-      }>([
-        { $match: { status: 'PAID' } },
-        {
-          $group: {
-            _id: null,
-            totalVolume: { $sum: '$amount' },
-            totalBids: { $sum: 1 },
-          },
-        },
-      ])
-      .toArray();
-
-    const todayAgg = await bidsCol
-      .aggregate<{ todayVolume: number }>([
-        {
-          $match: {
-            status: 'PAID',
-            createdAt: { $gte: startOfToday.toISOString() },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            todayVolume: { $sum: '$amount' },
-          },
-        },
-      ])
-      .toArray();
-
-    const distinctSupporters = await bidsCol.distinct('username', { status: 'PAID' });
+    const heroes = await this.getHeroes();
     const heroCount = await heroesCol.countDocuments({ active: true });
 
-    const heroes = await this.getHeroes();
+    const totalVolume = heroes.reduce((sum, h) => sum + h.totalBidAmount, 0);
+    const todayVolume = heroes.reduce((sum, h) => sum + h.todayBidAmount, 0);
+    const totalBids = heroes.reduce((sum, h) => sum + h.totalBidCount, 0);
+    const totalSupporters = heroes.reduce((sum, h) => sum + h.supportersCount, 0);
+
     const southHeroes = heroes.filter((h) => h.region === 'South');
     const northHeroes = heroes.filter((h) => h.region === 'North');
 
@@ -1128,11 +1107,11 @@ export class MongoDatabaseEngine {
     const topNorth = northHeroes[0] || { name: 'None', totalBidAmount: 0, currentRank: 0 };
 
     return {
-      totalVolume: Number(statsAgg[0]?.totalVolume || 0),
-      todayVolume: Number(todayAgg[0]?.todayVolume || 0),
-      totalBids: Number(statsAgg[0]?.totalBids || 0),
+      totalVolume,
+      todayVolume,
+      totalBids,
       totalHeroes: heroCount,
-      totalSupporters: distinctSupporters.length,
+      totalSupporters,
       onlineCount: Math.max(12, Math.floor(Math.random() * 20) + 115),
       topSouthHero: { name: topSouth.name, amount: topSouth.totalBidAmount, rank: topSouth.currentRank },
       topNorthHero: { name: topNorth.name, amount: topNorth.totalBidAmount, rank: topNorth.currentRank },
